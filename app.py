@@ -160,12 +160,28 @@ with gr.Blocks() as demo:
         ocr_output = gr.JSON(label="OCR Results")
         pdf_button_ocr = gr.Button("Download OCR PDF")
 
+<<<<<<< HEAD
         ocr_input.submit(fn=ocr_image, inputs=ocr_input, outputs=ocr_output)
+=======
+        ocr_button = gr.Button("Run OCR")
+
+        ocr_button.click(
+            fn=ocr_image,
+            inputs=ocr_input,
+            outputs=ocr_output
+        )
+
+>>>>>>> 6698b189ed616c73e742d7fa56e2e19ebbc0a37b
         pdf_button_ocr.click(
             fn=lambda x: generate_pdf(x),
             inputs=ocr_output,
             outputs=gr.File(label="Download PDF Report"),
         )
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 6698b189ed616c73e742d7fa56e2e19ebbc0a37b
 
 # ------------------------------
 # 5. Launch the App
