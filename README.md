@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # AI Multi-Modal Assistant
 
 ## Overview
@@ -23,17 +22,3 @@ Built with **Gradio**, **PyTorch**, and **Hugging Face Transformers**.
 ```bash
 git clone <repo-url>
 cd AI-MultiModal-Assistant
-=======
----
-title: Multi Modal Assistant Space
-emoji: 👁
-colorFrom: blue
-colorTo: yellow
-sdk: gradio
-sdk_version: 5.49.1
-app_file: app.py
-pinned: false
----
-
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
->>>>>>> hf/main
