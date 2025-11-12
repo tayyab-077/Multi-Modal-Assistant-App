@@ -1,3 +1,14 @@
+---
+title: AI Multi-Modal Assistant
+emoji: 🤖
+colorFrom: blue
+colorTo: green
+sdk: gradio
+app_file: app.py
+pinned: false
+---
+
+
 # AI Multi-Modal Assistant
 
 ## Overview
