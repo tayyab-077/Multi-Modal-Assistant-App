@@ -1,5 +1,5 @@
 # ------------------------------
-# AI Multi‑Modal Assistant — Enhanced Version
+# AI Multi‑Modal Assistant — Phase 2 (OCR Added)
 # ------------------------------
 
 import gradio as gr
@@ -11,8 +11,9 @@ import pandas as pd
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import io
-import yake  # keyword extraction
+import yake
 import tempfile
+import pytesseract  # <-- OCR
 
 # ------------------------------
 # 1. Load Models & Labels
@@ -23,9 +24,6 @@ sentiment_model = pipeline(
     "sentiment-analysis",
     model="distilbert/distilbert-base-uncased-finetuned-sst-2-english",
 )
-
-
-# Summarization Model
 summarizer_model = pipeline("summarization", model="facebook/bart-large-cnn")
 
 # Image classification model
@@ -40,9 +38,8 @@ preprocess = transforms.Compose(
     ]
 )
 
-# Load ImageNet class labels mapping
-imagenet_labels = []
-with open("imagenet_classes.txt", "r") as f:  # ensure this file is in your folder
+# Load ImageNet class labels
+with open("imagenet_classes.txt", "r") as f:
     imagenet_labels = [s.strip() for s in f.readlines()]
 
 # Keyword extraction
@@ -51,7 +48,6 @@ kw_extractor = yake.KeywordExtractor(lan="en", top=5)
 # ------------------------------
 # 2. Helper Functions
 # ------------------------------
-
 
 def analyze_text(text: str) -> dict:
     sentiment = sentiment_model(text)[0]
@@ -66,18 +62,18 @@ def analyze_text(text: str) -> dict:
         "Keywords": keywords,
     }
 
-
 def analyze_image(image: Image.Image) -> dict:
     img_t = preprocess(image).unsqueeze(0)
     with torch.no_grad():
         outputs = image_model(img_t)
         class_idx = outputs.argmax().item()
-    if 0 <= class_idx < len(imagenet_labels):
-        class_label = imagenet_labels[class_idx]
-    else:
-        class_label = f"Class index {class_idx}"
+    class_label = imagenet_labels[class_idx] if 0 <= class_idx < len(imagenet_labels) else f"Class index {class_idx}"
     return {"Predicted Class Index": class_idx, "Predicted Class Label": class_label}
 
+def ocr_image(image: Image.Image) -> dict:
+    """Extract text from uploaded image using Tesseract OCR."""
+    text = pytesseract.image_to_string(image)
+    return {"Extracted Text": text}
 
 def generate_pdf(results: dict) -> str:
     buffer = io.BytesIO()
@@ -96,19 +92,16 @@ def generate_pdf(results: dict) -> str:
     c.save()
     buffer.seek(0)
 
-    # ✅ Save to a temp file and return path instead of buffer
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(buffer.getvalue())
         tmp_path = tmp.name
 
-    return tmp_path  # ✅ returns file path (Gradio-friendly)
-
+    return tmp_path
 
 # ------------------------------
 # 3. Multi‑Modal Analysis Function
 # ------------------------------
 def analyze(input_data):
-    # Handles both text and image correctly in Gradio
     if isinstance(input_data, str) and input_data.strip():
         return analyze_text(input_data)
     elif isinstance(input_data, dict) and "image" in input_data:
@@ -118,7 +111,6 @@ def analyze(input_data):
     else:
         return {"Error": "Please enter text or upload an image."}
 
-
 # ------------------------------
 # 4. Gradio UI Layout
 # ------------------------------
@@ -126,46 +118,62 @@ def analyze(input_data):
 with gr.Blocks() as demo:
     gr.Markdown("## AI Multi‑Modal Assistant")
 
+    # ------------------ Image Analysis Tab ------------------
     with gr.Tab("Image Analysis"):
         image_input = gr.Image(type="pil", label="Upload an image for classification")
-        analyze_image_button = gr.Button("Analyze Image")  # ✅ MOVED INSIDE the tab
-
+        analyze_image_button = gr.Button("Analyze Image")
         image_output = gr.JSON(label="Image Analysis Results")
         pdf_button_image = gr.Button("Download Report (PDF)")
 
         analyze_image_button.click(fn=analyze, inputs=image_input, outputs=image_output)
+        pdf_button_image.click(
+            fn=lambda x: generate_pdf(analyze(x)),
+            inputs=image_input,
+            outputs=gr.File(label="Download PDF Report"),
+        )
 
-    pdf_button_image.click(
-        fn=lambda x: generate_pdf(analyze(x)),
-        inputs=image_input,
-        outputs=gr.File(label="Download PDF Report"),
-    )
-
-
+    # ------------------ Text Analysis Tab ------------------
     with gr.Tab("Text Analysis"):
         text_input = gr.Textbox(
             label="Enter text to analyze",
             placeholder="Type your text here...",
             lines=5
         )
-
         analyze_text_button = gr.Button("Analyze Text")
         text_output = gr.JSON(label="Text Analysis Results")
         pdf_button_text = gr.Button("Download Report (PDF)")
 
-        # Text analysis events
-        
         analyze_text_button.click(
             fn=analyze,
             inputs=text_input,
             outputs=text_output
         )
-
         pdf_button_text.click(
             fn=lambda x: generate_pdf(analyze(x)),
             inputs=text_input,
             outputs=gr.File(label="Download PDF Report")
         )
+
+    # ------------------ OCR Tab ------------------
+    with gr.Tab("OCR"):
+        ocr_input = gr.Image(type="pil", label="Upload image for OCR")
+        ocr_output = gr.JSON(label="OCR Results")
+        pdf_button_ocr = gr.Button("Download OCR PDF")
+
+        ocr_button = gr.Button("Run OCR")
+
+        ocr_button.click(
+            fn=ocr_image,
+            inputs=ocr_input,
+            outputs=ocr_output
+        )
+
+        pdf_button_ocr.click(
+            fn=lambda x: generate_pdf(x),
+            inputs=ocr_output,
+            outputs=gr.File(label="Download PDF Report"),
+        )
+
 
 
 # ------------------------------
